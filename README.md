@@ -22,7 +22,7 @@ Visual references: `static/microservices-architecture.png`, `static/class-diagra
 
 ## Domain model (summary)
 
-<img width="318" height="392" alt="Class Diagram" src="./blob/main/src/main/resources/static/ClassDiagram.png" />
+<img alt="Class Diagram" src="https://github.com/DanielOchoa1214/Taller3-AYGO/blob/main/src/main/resources/static/ClassDiagram.png" />
 
 Key domain objects and important fields (simplified):
 
@@ -112,6 +112,8 @@ Example: Ride response
 ---
 
 ## Microservice architecture (high level)
+
+<img alt="Class Diagram" src="https://github.com/DanielOchoa1214/Taller3-AYGO/blob/main/src/main/resources/static/Taller3Arch.png" />
 
 - API Gateway (REST + WebSocket) — single public entry point and request validation layer.
 - Lambda functions — used for authentication, validation, webhooks and lightweight orchestration.

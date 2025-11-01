@@ -1,4 +1,4 @@
-# Ride-Sharing Microservices — Prototype
+# MiniUber - Microservice Architecture for a Ride-Sharing Platform — Prototype
 
 ## Overview
 
@@ -21,6 +21,8 @@ Visual references: `static/microservices-architecture.png`, `static/class-diagra
 ---
 
 ## Domain model (summary)
+
+<img width="318" height="392" alt="Class Diagram" src="./blob/main/src/main/resources/static/ClassDiagram.png" />
 
 Key domain objects and important fields (simplified):
 

@@ -2,25 +2,21 @@
 
 ## Overview
 
-This repository contains a small prototype and design for a ride-sharing microservice platform (a simplified Uber-like system). The project models core domain objects (rides, drivers, users, payments), exposes RESTful endpoints, and documents a microservice architecture that uses an API Gateway, Lambda functions for light orchestration, and EC2/ECS for stateful services. Visual diagrams (class diagrams, sequence diagrams, architecture drawings) are available in the `static/` folder.
-
-This README summarizes the design metaphor, domain model, REST resources and URIs, resource representations, architecture decisions, prototype mapping and how to run the project locally.
+This repository contains a small prototype and design for a ride-sharing microservice platform (a simplified Uber-like system). The project models core domain objects (rides, drivers, users, payments), exposes RESTful endpoints, and proposes an initial beta for a microservice architecture that uses an API Gateway, Lambda functions for light orchestration, and some other cloud services.
 
 ---
 
 ## Design metaphor
 
 Think of the system as a set of cooperative agents:
-- API Gateway agents (API Gateway + Lambdas) handle auth, validation, coarse routing and light orchestration.
-- Worker agents (stateful microservices running on EC2/ECS) own domain logic and persistence: Ride Service, Driver Service, Payment Service, User Service.
-- Messaging agents (SNS/SQS or Kafka) decouple services and propagate events (ride state updates, payment events).
-- Real-time agents (WebSocket gateway or dedicated socket service) push driver-location and ride updates to clients.
-
-Visual references: `static/microservices-architecture.png`, `static/class-diagram.png`, `static/sequence-ride-request.png`.
+- API Gateway agents (API Gateway + Lambdas) handle Ride Service, Driver Service, Payment Service and User Service.
+- Messaging agents like SNS decouples services and propagate events (ride state updates, payment events).
+- Real-time agents (EventBridge) to push driver-location and ride updates to clients.
+- Storage agents (DynamoBD) to hold each microservice information as needed.
 
 ---
 
-## Domain model (summary)
+## Domain model
 
 <img alt="Class Diagram" src="https://github.com/DanielOchoa1214/Taller3-AYGO/blob/main/src/main/resources/static/ClassDiagram.png" />
 
@@ -28,84 +24,94 @@ Key domain objects and important fields (simplified):
 
 - Ride
   - id: string
-  - riderId: string
-  - driverId: string | null
-  - status: enum {REQUESTED, MATCHED, ONGOING, COMPLETED, CANCELLED}
-  - origin: {lat, lng}
-  - destination: {lat, lng}
-  - requestedAt, startedAt, endedAt: timestamps
-  - fare: number
+  - user: User
+  - driver: Driver
+  - from: string
+  - to: string
 
 - User
-  - id, name, phone, email, rating
+  - id: string
+  - name: string
+  - email: string
+  - score: double
 
 - Driver
   - id, name, vehicle: {plate, model}, status: enum {AVAILABLE, UNAVAILABLE}, currentLocation
+ 
+- Driver
+  - id: string
+  - name: string
+  - email: string
+  - state: enum {AVAILABLE, IN_A_RIDE, BANNED}
+  - rides: Ride[]
 
 - Payment
   - id, rideId, amount, method, status: enum {PENDING, COMPLETED, FAILED}
-
-Refer to `static/class-diagram.png` for the full class-level diagram implemented in the code.
+- Payment
+  - id: string
+  - price: double
+  - ride: Ride
+  - state: enum {PLACED, PAYED, REJECTED}
 
 ---
 
 ## API: Resource URIs and HTTP methods
 
-Base path: `/api/v1`
-
 Rides
-- POST /api/v1/rides — create a new ride request (returns ride resource with `REQUESTED` or `MATCHED` state)
-- GET  /api/v1/rides/{rideId} — get ride details
-- PUT  /api/v1/rides/{rideId} — update mutable ride fields (cancel ride, update destination before match, etc.)
-- GET  /api/v1/rides?userId={userId}&role={rider|driver} — list rides for a user
+- GET     /ride — get all rides
+- GET     /ride/{rideId} — get ride details
+- POST    /ride — create a new ride request (returns ride resource location in header)
+- PATCH   /ride — update mutable ride fields (cancel ride, update destination before match, etc.)
+- DELETE  /ride/{rideId} — deletes the ride registry
 
 Drivers
-- POST /api/v1/drivers — register a driver
-- GET  /api/v1/drivers/{driverId} — driver profile
-- PUT  /api/v1/drivers/{driverId}/status — update driver availability
-- PUT  /api/v1/drivers/{driverId}/location — update driver location (or push via WebSocket)
+- GET     /driver — get all drivers
+- GET     /driver/{driverId} — get driver details
+- POST    /driver — create a new driver profile (returns ride resource location in header)
+- PATCH   /driver — update mutable driver fields (update driver availability)
+- DELETE  /driver/{driverId} — deletes the driver registry
 
 Users
-- POST /api/v1/users — create a user account
-- GET  /api/v1/users/{userId} — get user profile
+- GET     /user — get all users
+- GET     /user/{userId} — get user details
+- POST    /user — create a new user profile (returns ride resource location in header)
+- PATCH   /user — update mutable user fields (improving/decreasing in score)
+- DELETE  /user/{userId} — deletes the user registry
 
 Payments
 - POST /api/v1/payments — initiate payment for a ride
 - GET  /api/v1/payments/{paymentId} — get payment status
 
-Real-time (WebSocket)
-- WebSocket connect: `wss://.../ws/track` — subscribe to ride and driver-location updates
-- Fallback REST location update: `PUT /api/v1/drivers/{driverId}/location`
+- GET     /payment — get payments users
+- GET     /payment/{paymentId} — get payment details
+- POST    /payment — create a new payment registry (returns ride resource location in header)
+- PATCH   /payment — update mutable payment fields (updates payment state)
+- DELETE  /payment/{paymentId} — deletes the payment registry
 
 ---
 
 ## Resource representations
 
-All resources use JSON for request and response bodies. Timestamps are ISO-8601 (UTC) strings.
+All resources use JSON for request and response bodies.
 
-Example: Ride creation request
+Example: User creation request
 
 ```zsh
 {
-  "riderId": "user-123",
-  "origin": { "lat": 37.7749, "lng": -122.4194 },
-  "destination": { "lat": 37.7849, "lng": -122.4094 },
-  "paymentMethodId": "card-456"
+    "name": "Daniel",
+    "email": "abc@xyz.com",
+    "score": 4.5
 }
 ```
 
-Example: Ride response
+Example: User response
 
 ```zsh
 {
-  "id": "ride-789",
-  "riderId": "user-123",
-  "driverId": "driver-111",
-  "status": "MATCHED",
-  "origin": { "lat": 37.7749, "lng": -122.4194 },
-  "destination": { "lat": 37.7849, "lng": -122.4094 },
-  "fare": 12.50,
-  "requestedAt": "2025-10-31T14:12:00Z"
+    "id": 1879023293,
+    "name": "Daniel",
+    "email": "abc@xyz.com",
+    "score": 4.5
 }
 ```
 
@@ -115,15 +121,17 @@ Example: Ride response
 
 <img alt="Class Diagram" src="https://github.com/DanielOchoa1214/Taller3-AYGO/blob/main/src/main/resources/static/Taller3Arch.png" />
 
+- S3 -
+- CDN -
+- Cloudfront - 
 - API Gateway (REST + WebSocket) — single public entry point and request validation layer.
-- Lambda functions — used for authentication, validation, webhooks and lightweight orchestration.
-- EC2/ECS/EKS — run the core microservices:
+- Lambda functions — run the core microservices:
   - Ride Service — lifecycle management and matching logic
   - Driver Service — driver profiles, availability and location
   - User Service — user profiles and authentication glue
   - Payment Service — integrate with payment provider and reconcile payments
-- Messaging/Event bus — SNS/SQS or Kafka to propagate domain events and integrate services asynchronously.
-- Datastores — service-specific persistent storage (RDS, DynamoDB) to enforce bounded contexts.
+- Messaging/Event bus — EventBridge to propagate domain events and integrate services asynchronously.
+- Datastores — DynamoDB - service-specific persistent storage to enforce bounded contexts.
 
 Sequence example (ride request):
 1. Client POSTs `/api/v1/rides` to API Gateway
@@ -133,11 +141,9 @@ Sequence example (ride request):
 5. Driver accepts; Ride Service updates ride `MATCHED` and notifies client and driver via WebSocket
 6. Ride proceeds; Payment Service finalizes the charge when ride completes
 
-Refer to `static/sequence-ride-request.png` for details.
-
 ---
 
-## What this prototype contains (mapping to repository)
+## What this prototype contains
 
 - Java + Maven code under `src/` implementing models, controllers and a simple in-memory or JDBC-backed persistence for demonstration.
 - REST controllers exposing the URIs listed above.

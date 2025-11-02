@@ -22,6 +22,7 @@ Think of the system as a set of cooperative agents:
 
 Key domain objects and important fields (simplified):
 
+```yml
 - Ride
   - id: string
   - user: User
@@ -46,12 +47,11 @@ Key domain objects and important fields (simplified):
   - rides: Ride[]
 
 - Payment
-  - id, rideId, amount, method, status: enum {PENDING, COMPLETED, FAILED}
-- Payment
   - id: string
   - price: double
   - ride: Ride
   - state: enum {PLACED, PAYED, REJECTED}
+```
 
 ---
 
@@ -79,9 +79,6 @@ Users
 - DELETE  /user/{userId} — deletes the user registry
 
 Payments
-- POST /api/v1/payments — initiate payment for a ride
-- GET  /api/v1/payments/{paymentId} — get payment status
-
 - GET     /payment — get payments users
 - GET     /payment/{paymentId} — get payment details
 - POST    /payment — create a new payment registry (returns ride resource location in header)

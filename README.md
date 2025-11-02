@@ -119,38 +119,46 @@ Example: User response
 
 ## Microservice architecture (high level)
 
-<img alt="Class Diagram" src="https://github.com/DanielOchoa1214/Taller3-AYGO/blob/main/src/main/resources/static/Taller3Arch.png" />
+<img alt="Architecture Diagram" src="src/main/resources/static/Taller3Arch.png" />
 
-- S3 - 
-- CDN -
-- Cloudfront - 
-- API Gateway (REST + WebSocket) — single public entry point and request validation layer.
-- Lambda functions — run the core microservices:
-  - Ride Service — lifecycle management and matching logic
-  - Driver Service — driver profiles, availability and location
-  - User Service — user profiles and authentication glue
-  - Payment Service — integrate with payment provider and reconcile payments
-- Messaging/Event bus — EventBridge to propagate domain events and integrate services asynchronously.
-- Datastores — DynamoDB - service-specific persistent storage to enforce bounded contexts.
+This section describes the cloud components and responsibilities used in the proposed architecture.
+
+- S3 — object storage for static assets (diagrams, client bundle, logs backups).
+- CDN (CloudFront) — edge caching for static assets and optional API caching to reduce latency for common GETs.
+- CloudWatch — centralized observability platform for the stack. Responsibilities:
+  - Collect logs (CloudWatch Logs) from Lambda, API Gateway access logs, ECS/EC2 agents and custom app logs.
+- API Gateway (REST + WebSocket) — single public entry point for client traffic; routes REST calls to services/Lambdas and manages WebSocket connections for real-time updates.
+- Lambda functions — lightweight, short-lived functions used for authentication, validation, webhook adapters, and small orchestration tasks.
+- Core microservices (run on EC2 / ECS / EKS) — stateful or long-running services that own business logic and data. Example services:
+  - Ride Service — manages ride lifecycle, state transitions and matching logic.
+  - Driver Service — driver profiles, availability state and location management.
+  - User Service — user profiles, account management and basic auth integration.
+  - Payment Service — payment initiation, reconciliation and integration with a payment provider.
+- Messaging / Event bus — EventBridge, SNS/SQS, or Kafka to publish domain events (RideRequested, RideMatched, PaymentCompleted) and decouple services for asynchronous processing.
+- Datastores — service-specific databases following the bounded-context principle. Examples: DynamoDB for driver/location data and RDS for relational transactional data. Use the right tool per service's consistency and query needs.
 
 Sequence example (ride request):
-1. Client POSTs `/api/v1/rides` to API Gateway
-2. Gateway triggers a Lambda for auth/validation then forwards to Ride Service
-3. Ride Service persists request and publishes `RideRequested` event to the event bus
-4. Driver Service consumes event and notifies nearby available drivers (via push / WebSocket)
-5. Driver accepts; Ride Service updates ride `MATCHED` and notifies client and driver via WebSocket
-6. Ride proceeds; Payment Service finalizes the charge when ride completes
+1. Client POSTs `/api/v1/rides` to API Gateway.
+2. API Gateway invokes a Lambda for authentication/validation (optional) and forwards the request to the Ride Service.
+3. Ride Service persists the request and publishes a `RideRequested` event to the event bus.
+4. Driver Service consumes the event and notifies nearby available drivers (via push notifications or WebSocket messages).
+5. A driver accepts; Driver Service confirms acceptance and Ride Service updates the ride to `MATCHED` and notifies both client and driver via WebSocket.
+6. Ride completes; Payment Service charges the rider and publishes `PaymentCompleted`.
+
+Real-time considerations
+- Use WebSocket (via API Gateway or a dedicated socket cluster) for low-latency driver location updates and ride events.
+- To scale, aggregate/ sample location updates at the client or edge; consider a dedicated streaming pipeline for telemetry.
 
 ---
 
 ## What this prototype contains
 
-- Java + Maven code under `src/` implementing models, controllers and a simple in-memory or JDBC-backed persistence for demonstration.
-- REST controllers exposing the URIs listed above.
-- Unit tests under `src/test` covering core domain operations.
-- Diagrams in `static/` showing class diagrams and architecture.
+- Java + Maven code under `src/` implementing domain models, controllers and a simple persistence layer for demonstration.
+- REST controllers that expose the routes described earlier.
+- Unit tests under `src/test` covering core domain behaviors.
+- Visual diagrams in `src/main/resources/static/` (or `static/`) for class diagrams and architecture.
 
-Note: This is a teaching/prototype repository. Implementation choices prioritize clarity and demonstration over production scalability and resilience.
+This repository is a prototype and educational artifact — it prioritizes clarity over production-ready concerns such as security, multi-region deployment, and hardened observability.
 
 ---
 
@@ -162,7 +170,7 @@ Build the project and run the service locally (defaults may vary depending on br
 # Build package
 ./mvnw clean package
 
-# Run with Maven
+# Run with Maven (dev)
 ./mvnw spring-boot:run
 
 # Or run the packaged jar
@@ -190,7 +198,6 @@ Suggested deployment pattern used for the design:
 - Use SNS/SQS (or Kafka) for decoupled event propagation and to implement eventual consistency.
 - Monitor with CloudWatch, set up alarms on error rates and latencies.
 
-Scaling & Real-time considerations:
-- For WebSocket scale, prefer a managed WebSocket gateway (API Gateway WebSocket or a socket cluster on ECS/EKS).
-- Use location update sampling and rate limits to keep the location stream efficient.
+---
+
 

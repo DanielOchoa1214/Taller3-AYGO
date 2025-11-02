@@ -168,13 +168,16 @@ Default base URL: `http://localhost:8080`
 
 ---
 
-## Deployment notes (prototype -> cloud)
+## Deployment notes
 
-Suggested deployment pattern used for the design:
+Deployment patterns used for the design:
 
 - Use API Gateway to expose REST endpoints.
 - Use managed DBs (DynamoDB) per service to enforce bounded contexts.
 - Use EventBridge for decoupled event propagation and to implement eventual consistency.
 - Monitor with CloudWatch, set up alarms on error rates and latencies.
-
+- Guarantee idempotency between operations.
+- Implement a Circuit Breaker pattern for a resilient system.
+- Handle asyncronus operations with an Event-Driven architecture in mind.
+- System designed with an API first discipline in mind.
 

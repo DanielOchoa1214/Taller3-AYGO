@@ -121,7 +121,7 @@ Example: User response
 
 <img alt="Class Diagram" src="https://github.com/DanielOchoa1214/Taller3-AYGO/blob/main/src/main/resources/static/Taller3Arch.png" />
 
-- S3 -
+- S3 - 
 - CDN -
 - Cloudfront - 
 - API Gateway (REST + WebSocket) — single public entry point and request validation layer.
@@ -193,28 +193,4 @@ Suggested deployment pattern used for the design:
 Scaling & Real-time considerations:
 - For WebSocket scale, prefer a managed WebSocket gateway (API Gateway WebSocket or a socket cluster on ECS/EKS).
 - Use location update sampling and rate limits to keep the location stream efficient.
-
----
-
-## Design tradeoffs and decisions
-
-- Simplicity vs. performance: prototype uses synchronous REST and in-memory stores for clarity. Production must use persistent stores and resilient async flows.
-- Real-time: WebSocket provides low-latency updates but requires stateful scaling. Consider push notifications as a fallback.
-- Orchestration: Lambdas are useful for small glue logic; core stateful services are better on containers/VMs.
-
----
-
-## Contributing
-
-Please open issues or PRs to propose changes. Run `./mvnw test` and keep code style aligned with existing conventions. Include unit tests for new behavior.
-
----
-
-## License
-
-Check repository root for license details.
-
----
-
-Diagrams and UML: open the `static/` directory to view the architecture and class diagrams referenced above.
 

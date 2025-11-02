@@ -119,7 +119,7 @@ Example: User response
 
 ## Microservice architecture (high level)
 
-<img alt="Architecture Diagram" src="src/main/resources/static/Taller3Arch.png" />
+<img alt="Architecture Diagram" src="https://github.com/DanielOchoa1214/Taller3-AYGO/blob/main/src/main/resources/static/Taller3Arch.png" />
 
 This section describes the cloud components and responsibilities used in the proposed architecture.
 

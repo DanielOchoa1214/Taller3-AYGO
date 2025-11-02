@@ -128,35 +128,28 @@ This section describes the cloud components and responsibilities used in the pro
 - CloudWatch — centralized observability platform for the stack. Responsibilities:
   - Collect logs (CloudWatch Logs) from Lambda, API Gateway access logs, ECS/EC2 agents and custom app logs.
 - API Gateway (REST + WebSocket) — single public entry point for client traffic; routes REST calls to services/Lambdas and manages WebSocket connections for real-time updates.
-- Lambda functions — lightweight, short-lived functions used for authentication, validation, webhook adapters, and small orchestration tasks.
-- Core microservices (run on EC2 / ECS / EKS) — stateful or long-running services that own business logic and data. Example services:
+- Lambda functions — lightweight services that own business logic and data. Example services:
   - Ride Service — manages ride lifecycle, state transitions and matching logic.
   - Driver Service — driver profiles, availability state and location management.
   - User Service — user profiles, account management and basic auth integration.
   - Payment Service — payment initiation, reconciliation and integration with a payment provider.
-- Messaging / Event bus — EventBridge, SNS/SQS, or Kafka to publish domain events (RideRequested, RideMatched, PaymentCompleted) and decouple services for asynchronous processing.
-- Datastores — service-specific databases following the bounded-context principle. Examples: DynamoDB for driver/location data and RDS for relational transactional data. Use the right tool per service's consistency and query needs.
+- Messaging / Event bus — EventBridge to publish domain events (RideRequested, RideMatched, PaymentCompleted) and decouple services for asynchronous processing.
+- Datastores — DynamoDB service-specific databases following the bounded-context principle.
 
 Sequence example (ride request):
-1. Client POSTs `/api/v1/rides` to API Gateway.
-2. API Gateway invokes a Lambda for authentication/validation (optional) and forwards the request to the Ride Service.
+1. Client POSTs `/ride` to API Gateway.
+2. API Gateway invokes a Lambda the Ride Service.
 3. Ride Service persists the request and publishes a `RideRequested` event to the event bus.
-4. Driver Service consumes the event and notifies nearby available drivers (via push notifications or WebSocket messages).
-5. A driver accepts; Driver Service confirms acceptance and Ride Service updates the ride to `MATCHED` and notifies both client and driver via WebSocket.
+4. Driver Service consumes the event and notifies nearby available drivers (via push notifications).
+5. A driver accepts; Driver Service confirms acceptance and Ride Service updates the ride to `MATCHED` and notifies both client and driver.
 6. Ride completes; Payment Service charges the rider and publishes `PaymentCompleted`.
-
-Real-time considerations
-- Use WebSocket (via API Gateway or a dedicated socket cluster) for low-latency driver location updates and ride events.
-- To scale, aggregate/ sample location updates at the client or edge; consider a dedicated streaming pipeline for telemetry.
 
 ---
 
 ## What this prototype contains
 
-- Java + Maven code under `src/` implementing domain models, controllers and a simple persistence layer for demonstration.
+- Java + Maven code implementing domain models, controllers and a simple persistence layer for demonstration.
 - REST controllers that expose the routes described earlier.
-- Unit tests under `src/test` covering core domain behaviors.
-- Visual diagrams in `src/main/resources/static/` (or `static/`) for class diagrams and architecture.
 
 This repository is a prototype and educational artifact — it prioritizes clarity over production-ready concerns such as security, multi-region deployment, and hardened observability.
 
@@ -168,22 +161,13 @@ Build the project and run the service locally (defaults may vary depending on br
 
 ```zsh
 # Build package
-./mvnw clean package
+mvn clean install
 
-# Run with Maven (dev)
-./mvnw spring-boot:run
-
-# Or run the packaged jar
-java -jar target/taller3aygo-0.0.1-SNAPSHOT.jar
+# Run with Docker Compose
+docker compose up -d
 ```
 
-Default base URL: `http://localhost:8080/api/v1` (confirm in `application.yaml` or `src/main/resources` if changed).
-
-Run tests:
-
-```zsh
-./mvnw test
-```
+Default base URL: `http://localhost:8080`
 
 ---
 
@@ -191,13 +175,9 @@ Run tests:
 
 Suggested deployment pattern used for the design:
 
-- Use API Gateway to expose REST and WebSocket endpoints.
-- Use Lambda functions for light orchestration, auth and webhook endpoints.
-- Host stateful microservices on EC2, ECS, or EKS (Ride Service / Driver Service / Payment Service).
-- Use managed DBs (RDS or DynamoDB) per service to enforce bounded contexts.
-- Use SNS/SQS (or Kafka) for decoupled event propagation and to implement eventual consistency.
+- Use API Gateway to expose REST endpoints.
+- Use managed DBs (DynamoDB) per service to enforce bounded contexts.
+- Use EventBridge for decoupled event propagation and to implement eventual consistency.
 - Monitor with CloudWatch, set up alarms on error rates and latencies.
-
----
 
 
